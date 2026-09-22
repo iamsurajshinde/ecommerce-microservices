@@ -1,0 +1,75 @@
+# =========================================================================
+# Build and Output Directories (Maven / Gradle)
+# =========================================================================
+target/
+build/
+out/
+bin/
+
+# =========================================================================
+# Testing and Logs
+# =========================================================================
+**/plugins/
+/logs/
+*.log
+hs_err_pid*
+
+# =========================================================================
+# Spring Boot & Configuration Secrets
+# =========================================================================
+# Ignore specific local configuration files if they contain production credentials
+# application-local.properties
+# application-local.yml
+.env
+
+# =========================================================================
+# Build Tools & Wrappers
+# =========================================================================
+.gradle/
+.m2/
+
+# Note: It is highly recommended to KEEP the Maven/Gradle wrappers in source control 
+# so others can build the project without installing the build tool locally.
+# However, you can ignore the specific user configurations if needed:
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.properties.updated
+
+# =========================================================================
+# IDE Settings
+# =========================================================================
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+### Eclipse / STS (Spring Tool Suite) ###
+.metadata/
+.classpath
+.project
+.settings/
+.springBeans
+.factorypath
+.apt_generated/
+.sts4-cache/
+*.launch
+
+### Visual Studio Code ###
+.vscode/
+!.vscode/extensions.json
+
+# =========================================================================
+# Operating System Files
+# =========================================================================
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+
+### Windows ###
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
