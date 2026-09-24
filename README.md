@@ -5,6 +5,8 @@ This project contains a fully modular, enterprise-grade e-commerce microservices
 ## Architecture & Services
 1. **discovery-server** (Port 8761): Eureka Service Discovery.
 2. **api-gateway** (Port 8080): Spring Cloud Gateway routing & JWT security filter.
+3. **user-service** (Port 8081): User registration, authentication, roles, profile management.
 
 ## Sprint Roadmap Covered
 - **Sprint 1:** Infrastructure Setup (Discovery Server & API Gateway)
+- **Sprint 2:** User Management Module (Spring Security, JWT, BCrypt)
