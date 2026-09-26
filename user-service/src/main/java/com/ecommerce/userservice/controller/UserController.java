@@ -22,7 +22,7 @@ public class UserController {
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user) {
         if (userService.existsByEmail(user.getEmail())) {
-            return ResponseEntity.badRequest().body("Email is already in use.");
+            throw new IllegalStateException("Email is already in use.");
         }
         User savedUser = userService.saveUser(user);
         return ResponseEntity.ok(toUserResponse(savedUser));
