@@ -29,18 +29,18 @@ public class JwtService {
         } catch (JwtException | IllegalArgumentException exception) {
             return false;
         }
+    }
 
-        public Optional<String> extractRole(String token) {
-            try {
-                return Optional.ofNullable(Jwts.parser()
-                        .verifyWith(signingKey)
-                        .build()
-                        .parseSignedClaims(token)
-                        .getPayload()
-                        .get("role", String.class));
-            } catch (JwtException | IllegalArgumentException exception) {
-                return Optional.empty();
-            }
+    public Optional<String> extractRole(String token) {
+        try {
+            return Optional.ofNullable(Jwts.parser()
+                    .verifyWith(signingKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .get("role", String.class));
+        } catch (JwtException | IllegalArgumentException exception) {
+            return Optional.empty();
         }
     }
 }
