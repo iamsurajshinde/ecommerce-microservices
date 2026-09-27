@@ -1,5 +1,6 @@
 package com.ecommerce.paymentservice.service;
 
+import com.ecommerce.paymentservice.exception.PaymentNotFoundException;
 import com.ecommerce.paymentservice.model.Payment;
 import com.ecommerce.paymentservice.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
@@ -53,5 +54,21 @@ public class PaymentService {
 
     public Optional<Payment> findByOrderId(Long orderId) {
         return paymentRepository.findByOrderId(orderId);
+    }
+
+    public Payment refund(Long orderId) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID is required.");
+        }
+        Payment payment = paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new PaymentNotFoundException("Payment not found for order: " + orderId));
+        if ("REFUNDED".equals(payment.getStatus())) {
+            return payment;
+        }
+        if (!"SUCCESS".equals(payment.getStatus())) {
+            throw new IllegalStateException("Only successful payments can be refunded.");
+        }
+        payment.setStatus("REFUNDED");
+        return paymentRepository.save(payment);
     }
 }

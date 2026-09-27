@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.time.Instant;
@@ -18,6 +19,12 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, exception.getMessage(), request);
     }
 
+    @ExceptionHandler(PaymentNotFoundException.class)
+    ResponseEntity<ApiError> handlePaymentNotFound(
+            PaymentNotFoundException exception, HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, exception.getMessage(), request);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<ApiError> handleBadRequest(
             IllegalArgumentException exception, HttpServletRequest request) {
@@ -28,6 +35,14 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiError> handleMalformedRequest(
             HttpMessageNotReadableException exception, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "Request body is malformed.", request);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    ResponseEntity<ApiError> handleResponseStatus(
+            ResponseStatusException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.resolve(exception.getStatusCode().value());
+        return error(status == null ? HttpStatus.INTERNAL_SERVER_ERROR : status,
+                exception.getReason(), request);
     }
 
     @ExceptionHandler(Exception.class)
