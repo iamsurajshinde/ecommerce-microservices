@@ -44,6 +44,12 @@ spring:
             - Path=/v3/api-docs/order-service
           filters:
             - RewritePath=/v3/api-docs/order-service, /v3/api-docs
+        - id: payment-service-openapi
+          uri: lb://payment-service
+          predicates:
+            - Path=/v3/api-docs/payment-service
+          filters:
+            - RewritePath=/v3/api-docs/payment-service, /v3/api-docs
         - id: user-service-route
           uri: lb://user-service
           predicates:
@@ -64,6 +70,10 @@ spring:
           uri: lb://order-service
           predicates:
             - Path=/api/orders/**
+        - id: payment-service-route
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
 
 springdoc:
   swagger-ui:
@@ -78,6 +88,8 @@ springdoc:
         url: /v3/api-docs/cart-service
       - name: Order Service
         url: /v3/api-docs/order-service
+      - name: Payment Service
+        url: /v3/api-docs/payment-service
     urls-primary-name: User Service
 
 eureka:

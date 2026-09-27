@@ -1,12 +1,15 @@
 # E-Commerce Java 17 Microservices Project
 
-This project contains a fully modular, enterprise-grade e-commerce microservices architecture implemented with **Java 17**, **Spring Boot 3.x**, **Spring Cloud**, **Spring Security (JWT)**, **PostgreSQL**.
+This project contains a fully modular, enterprise-grade e-commerce microservices architecture implemented with **Java 17**, **Spring Boot 3.x**, **Spring Cloud**, **Spring Security (JWT)**, **PostgreSQL**, and **OpenFeign**.
 
 ## Architecture & Services
 1. **discovery-server** (Port 8761): Eureka Service Discovery.
 2. **api-gateway** (Port 8080): Spring Cloud Gateway routing.
 3. **user-service** (Port 8081): User registration, authentication, roles, and JWT issuance.
-4. **product-service** (Port 8082): Product catalog, category management, keyword search.
+4. **product-service** (Port 8082): Product and category catalog.
+5. **cart-service** (Port 8083): User carts with optimistic locking for concurrent updates.
+6. **order-service** (Port 8084): Order creation, product validation, and payment orchestration.
+7. **payment-service** (Port 8085): Secure mock payment processing.
 
 ## Authentication
 
@@ -34,7 +37,10 @@ The API Gateway provides a unified Swagger UI:
 http://localhost:8080/swagger-ui.html
 ```
 
+Use the API selector in the UI to switch between User, Product, Cart, Order,
+and Payment APIs. Their OpenAPI documents are proxied through the gateway at
+`/v3/api-docs/{service-name}`.
+
 ## Sprint Roadmap Covered
 - **Sprint 1:** Infrastructure Setup (Discovery Server & API Gateway)
 - **Sprint 2:** User Management Module (Spring Security, JWT, BCrypt)
-- **Sprint 3:** Product Catalog Module (JPA entities, search & filtering)
