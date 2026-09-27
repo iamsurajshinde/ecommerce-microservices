@@ -11,6 +11,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -30,8 +31,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authorization != null && authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
             String token = authorization.substring(7).trim();
             if (!token.isBlank() && jwtService.isValid(token)) {
+                String role = jwtService.extractRole(token).orElse("USER");
                 SecurityContextHolder.getContext().setAuthentication(
-                        new UsernamePasswordAuthenticationToken("jwt-user", null, Collections.emptyList()));
+                        new UsernamePasswordAuthenticationToken("jwt-user", null,
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))));
             }
         }
         filterChain.doFilter(request, response);

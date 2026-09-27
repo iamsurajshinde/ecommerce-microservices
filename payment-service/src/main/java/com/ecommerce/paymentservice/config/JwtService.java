@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.util.Optional;
 
 @Service
 public class JwtService {
@@ -24,6 +25,15 @@ public class JwtService {
             return true;
         } catch (JwtException | IllegalArgumentException exception) {
             return false;
+        }
+
+        public Optional<String> extractRole(String token) {
+            try {
+                return Optional.ofNullable(Jwts.parser().verifyWith(signingKey).build()
+                        .parseSignedClaims(token).getPayload().get("role", String.class));
+            } catch (JwtException | IllegalArgumentException exception) {
+                return Optional.empty();
+            }
         }
     }
 }
