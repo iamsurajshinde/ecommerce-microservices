@@ -1,6 +1,15 @@
 server:
   port: 8080
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
 spring:
   application:
     name: api-gateway
@@ -11,6 +20,18 @@ spring:
           enabled: true
           lower-case-service-id: true
       routes:
+        - id: user-service-openapi
+          uri: lb://user-service
+          predicates:
+            - Path=/v3/api-docs/user-service
+          filters:
+            - RewritePath=/v3/api-docs/user-service, /v3/api-docs
+        - id: product-service-openapi
+          uri: lb://product-service
+          predicates:
+            - Path=/v3/api-docs/product-service
+          filters:
+            - RewritePath=/v3/api-docs/product-service, /v3/api-docs
         - id: user-service-route
           uri: lb://user-service
           predicates:
@@ -23,6 +44,17 @@ spring:
           uri: lb://product-service
           predicates:
             - Path=/api/categories/**
+
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    urls:
+      - name: User Service
+        url: /v3/api-docs/user-service
+      - name: Product Service
+        url: /v3/api-docs/product-service
+    urls-primary-name: User Service
 
 eureka:
   client:
