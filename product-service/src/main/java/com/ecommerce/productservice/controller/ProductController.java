@@ -5,6 +5,10 @@ import com.ecommerce.productservice.service.ProductService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +20,8 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    @Value("${internal.service-token}")
+    private String internalServiceToken;
 
     @GetMapping
     public List<Product> getAllProducts(@RequestParam(required = false) String keyword,
@@ -38,5 +44,38 @@ public class ProductController {
     @PostMapping
     public Product createProduct(@RequestBody Product product) {
         return productService.create(product);
+    }
+
+    @PutMapping("/{id}")
+    public Product updateProduct(@PathVariable Long id, @RequestBody Product product) {
+        return productService.update(id, product);
+    }
+
+    @PatchMapping("/{id}/stock")
+    public Product decreaseStock(
+            @PathVariable Long id,
+            @RequestParam Integer quantity,
+            @RequestHeader("X-Internal-Service-Token") String serviceToken,
+            Authentication authentication) {
+        if (!internalServiceToken.equals(serviceToken)
+                || authentication == null
+                || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Internal service access required.");
+        }
+        return productService.decreaseStock(id, quantity);
+    }
+
+    @PatchMapping("/{id}/stock/restore")
+    public Product restoreStock(
+            @PathVariable Long id,
+            @RequestParam Integer quantity,
+            @RequestHeader("X-Internal-Service-Token") String serviceToken,
+            Authentication authentication) {
+        if (!internalServiceToken.equals(serviceToken)
+                || authentication == null
+                || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Internal service access required.");
+        }
+        return productService.increaseStock(id, quantity);
     }
 }
