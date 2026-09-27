@@ -4,6 +4,7 @@ import com.ecommerce.userservice.dto.LoginRequest;
 import com.ecommerce.userservice.dto.LoginResponse;
 import com.ecommerce.userservice.dto.UserResponse;
 import com.ecommerce.userservice.dto.UpdateProfileRequest;
+import com.ecommerce.userservice.dto.UpdateRoleRequest;
 import com.ecommerce.userservice.model.User;
 import com.ecommerce.userservice.service.JwtService;
 import com.ecommerce.userservice.service.UserService;
@@ -66,6 +67,19 @@ public class UserController {
         }
 
         return ResponseEntity.ok(toUserResponse(userService.updateProfile(id, request)));
+    }
+
+    @PostMapping("/logout")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<Void> logout() {
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/role")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<UserResponse> updateRole(
+            @PathVariable Long id, @RequestBody UpdateRoleRequest request) {
+        return ResponseEntity.ok(toUserResponse(userService.updateRole(id, request)));
     }
 
     private UserResponse toUserResponse(User user) {

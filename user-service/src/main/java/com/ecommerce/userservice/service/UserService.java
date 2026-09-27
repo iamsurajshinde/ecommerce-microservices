@@ -2,6 +2,7 @@ package com.ecommerce.userservice.service;
 
 import com.ecommerce.userservice.exception.InvalidCredentialsException;
 import com.ecommerce.userservice.dto.UpdateProfileRequest;
+import com.ecommerce.userservice.dto.UpdateRoleRequest;
 import com.ecommerce.userservice.model.User;
 import com.ecommerce.userservice.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -77,6 +78,20 @@ public class UserService {
             user.setPassword(passwordEncoder.encode(request.password()));
         }
 
+        return userRepository.save(user);
+    }
+
+    public User updateRole(Long id, UpdateRoleRequest request) {
+        if (request == null || request.role() == null || request.role().isBlank()) {
+            throw new IllegalArgumentException("Role is required.");
+        }
+        String role = request.role().trim().toUpperCase();
+        if (!role.equals("USER") && !role.equals("ADMIN")) {
+            throw new IllegalArgumentException("Role must be USER or ADMIN.");
+        }
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        user.setRole(role);
         return userRepository.save(user);
     }
 }
