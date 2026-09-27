@@ -69,6 +69,30 @@ public class CartService {
         return cartRepository.save(cart);
     }
 
+    public Cart updateItemQuantity(Long userId, Long productId, Integer quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than zero.");
+        }
+        Cart cart = getOrCreateCart(userId);
+        CartItem item = cart.getItems().stream()
+                .filter(existing -> existing.getProductId().equals(productId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Product is not in the cart."));
+        ProductDTO product = productClient.getProductById(productId);
+        if (product == null || product.stockQuantity() < quantity) {
+            throw new IllegalArgumentException("Insufficient stock for product.");
+        }
+        item.setQuantity(quantity);
+        item.setPrice(product.price());
+        return cartRepository.save(cart);
+    }
+
+    public void clearCart(Long userId) {
+        Cart cart = getOrCreateCart(userId);
+        cart.getItems().clear();
+        cartRepository.save(cart);
+    }
+
     public Double calculateCartTotal(Cart cart) {
         if (cart.getItems() == null) return 0.0;
         return cart.getItems().stream()
