@@ -1,0 +1,197 @@
+services:
+  discovery-server:
+    build: ./discovery-server
+    image: ecommerce/discovery-server:latest
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  api-gateway:
+    build: ./api-gateway
+    image: ecommerce/api-gateway:latest
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - discovery-server
+    environment:
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  user-db:
+    image: postgres:16
+    container_name: user-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d user_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  user-service:
+    build: ./user-service
+    image: ecommerce/user-service:latest
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      discovery-server:
+        condition: service_started
+      user-db:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://user-db:5432/user_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  product-db:
+    image: postgres:16
+    container_name: product-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d product_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  product-service:
+    build: ./product-service
+    image: ecommerce/product-service:latest
+    container_name: product-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      discovery-server:
+        condition: service_started
+      product-db:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://product-db:5432/product_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  cart-db:
+    image: postgres:16
+    container_name: cart-db
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: cart_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - cart-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cart_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  cart-service:
+    build: ./cart-service
+    image: ecommerce/cart-service:latest
+    container_name: cart-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      discovery-server:
+        condition: service_started
+      cart-db:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://cart-db:5432/cart_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  order-db:
+    image: postgres:16
+    container_name: order-db
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d order_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  order-service:
+    build: ./order-service
+    image: ecommerce/order-service:latest
+    container_name: order-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      discovery-server:
+        condition: service_started
+      order-db:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://order-db:5432/order_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  payment-service:
+    build: ./payment-service
+    image: ecommerce/payment-service:latest
+    container_name: payment-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      discovery-server:
+        condition: service_started
+      payment-db:
+        condition: service_healthy
+    environment:
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://payment-db:5432/payment_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+
+  payment-db:
+    image: postgres:16
+    container_name: payment-db
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  user-db-data:
+  product-db-data:
+  cart-db-data:
+  order-db-data:
+  payment-db-data:
