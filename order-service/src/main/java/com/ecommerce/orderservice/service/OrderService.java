@@ -59,25 +59,47 @@ public class OrderService {
         order.setStatus("CREATED");
         order.setPaymentStatus("PENDING");
         Order savedOrder = orderRepository.save(order);
+        List<OrderItem> reservedItems = new java.util.ArrayList<>();
 
         try {
+            for (OrderItem item : savedOrder.getItems()) {
+                productClient.decreaseStock(item.getProductId(), item.getQuantity());
+                reservedItems.add(item);
+            }
             PaymentDTO payment = paymentClient.processPayment(new PaymentRequest(
                     savedOrder.getId(), savedOrder.getTotalPrice(), savedOrder.getPaymentMethod()));
             if (payment == null || !"SUCCESS".equals(payment.status())) {
                 throw new IllegalStateException("Payment was not successful.");
             }
-            for (OrderItem item : savedOrder.getItems()) {
-                productClient.decreaseStock(item.getProductId(), item.getQuantity());
-            }
             savedOrder.setPaymentStatus("SUCCESS");
             savedOrder.setStatus("CONFIRMED");
         } catch (FeignException | IllegalArgumentException | IllegalStateException exception) {
+            RuntimeException compensationFailure = restoreReservedStock(reservedItems);
             savedOrder.setPaymentStatus("FAILED");
             savedOrder.setStatus("PAYMENT_FAILED");
             orderRepository.save(savedOrder);
+            if (compensationFailure != null) {
+                exception.addSuppressed(compensationFailure);
+            }
             throw new IllegalStateException("Payment processing failed.", exception);
         }
         return orderRepository.save(savedOrder);
+    }
+
+    private RuntimeException restoreReservedStock(List<OrderItem> reservedItems) {
+        RuntimeException firstFailure = null;
+        for (OrderItem item : reservedItems) {
+            try {
+                productClient.restoreStock(item.getProductId(), item.getQuantity());
+            } catch (FeignException | IllegalArgumentException | IllegalStateException exception) {
+                if (firstFailure == null) {
+                    firstFailure = new IllegalStateException("Unable to restore reserved stock.", exception);
+                } else {
+                    firstFailure.addSuppressed(exception);
+                }
+            }
+        }
+        return firstFailure;
     }
 
     public List<Order> getOrdersByUser(Long userId) {

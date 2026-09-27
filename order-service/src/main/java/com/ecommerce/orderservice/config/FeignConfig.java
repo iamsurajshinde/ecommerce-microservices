@@ -17,6 +17,7 @@ public class FeignConfig {
     @Bean
     RequestInterceptor bearerTokenInterceptor() {
         return template -> {
+            template.header("X-Internal-Service-Token", internalServiceToken);
             ServletRequestAttributes attributes =
                     (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes == null) {
@@ -27,7 +28,6 @@ public class FeignConfig {
             if (authorization != null && authorization.startsWith("Bearer ")) {
                 template.header("Authorization", authorization);
             }
-            template.header("X-Internal-Service-Token", internalServiceToken);
         };
     }
 }

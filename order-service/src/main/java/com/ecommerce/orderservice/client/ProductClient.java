@@ -16,4 +16,9 @@ public interface ProductClient {
     ProductDTO decreaseStock(
             @PathVariable("id") Long id,
             @RequestParam("quantity") Integer quantity);
+
+    @PatchMapping("/api/products/{id}/stock/restore")
+    ProductDTO restoreStock(
+            @PathVariable("id") Long id,
+            @RequestParam("quantity") Integer quantity);
 }
