@@ -51,6 +51,12 @@ public class ProductController {
         return productService.update(id, product);
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+        productService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PatchMapping("/{id}/stock")
     public Product decreaseStock(
             @PathVariable Long id,
