@@ -2,18 +2,21 @@ package com.ecommerce.orderservice.service;
 
 import com.ecommerce.orderservice.client.ProductClient;
 import com.ecommerce.orderservice.client.ProductDTO;
-import com.ecommerce.orderservice.client.UserClient;
 import com.ecommerce.orderservice.client.PaymentClient;
 import com.ecommerce.orderservice.client.PaymentDTO;
 import com.ecommerce.orderservice.client.PaymentRequest;
-import feign.FeignException;
+import com.ecommerce.orderservice.client.UserClient;
 import com.ecommerce.orderservice.model.Order;
 import com.ecommerce.orderservice.model.OrderItem;
+import com.ecommerce.orderservice.model.OrderStatus;
 import com.ecommerce.orderservice.repository.OrderRepository;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +42,7 @@ public class OrderService {
                 throw new IllegalArgumentException("Each order item requires a product and positive quantity.");
             }
             ProductDTO product = productClient.getProductById(item.getProductId());
-            
+
             if (product == null) {
                 throw new RuntimeException("Product with ID " + item.getProductId() + " not found.");
             }
@@ -56,10 +59,10 @@ public class OrderService {
         }
 
         order.setTotalPrice(totalCalculatedPrice);
-        order.setStatus("CREATED");
+        order.setStatus(OrderStatus.CREATED);
         order.setPaymentStatus("PENDING");
         Order savedOrder = orderRepository.save(order);
-        List<OrderItem> reservedItems = new java.util.ArrayList<>();
+        List<OrderItem> reservedItems = new ArrayList<>();
 
         try {
             for (OrderItem item : savedOrder.getItems()) {
@@ -72,11 +75,11 @@ public class OrderService {
                 throw new IllegalStateException("Payment was not successful.");
             }
             savedOrder.setPaymentStatus("SUCCESS");
-            savedOrder.setStatus("CONFIRMED");
+            savedOrder.setStatus(OrderStatus.CONFIRMED);
         } catch (FeignException | IllegalArgumentException | IllegalStateException exception) {
             RuntimeException compensationFailure = restoreReservedStock(reservedItems);
             savedOrder.setPaymentStatus("FAILED");
-            savedOrder.setStatus("PAYMENT_FAILED");
+            savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
             orderRepository.save(savedOrder);
             if (compensationFailure != null) {
                 exception.addSuppressed(compensationFailure);
@@ -104,5 +107,45 @@ public class OrderService {
 
     public List<Order> getOrdersByUser(Long userId) {
         return orderRepository.findByUserId(userId);
+    }
+
+    public Order getOrder(Long id) {
+        return orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found."));
+    }
+
+    public Order cancelOrder(Long id) {
+        Order order = getOrder(id);
+        if (OrderStatus.CANCELLED == order.getStatus()) {
+            return order;
+        }
+
+        if (order.getStatus() != OrderStatus.CREATED && order.getStatus() != OrderStatus.CONFIRMED) {
+            throw new IllegalStateException("Order cannot be cancelled in its current state.");
+        }
+        for (OrderItem item : order.getItems()) {
+            productClient.restoreStock(item.getProductId(), item.getQuantity());
+        }
+        order.setStatus(OrderStatus.CANCELLED);
+        if ("SUCCESS".equals(order.getPaymentStatus())) {
+            paymentClient.refundPayment(order.getId());
+            order.setPaymentStatus("REFUNDED");
+        }
+        return orderRepository.save(order);
+    }
+
+    public Order updateStatus(Long id, String status) {
+        if (status == null || status.isBlank()) {
+            throw new IllegalArgumentException("Order status is required.");
+        }
+        OrderStatus normalized;
+        try {
+            normalized = OrderStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Unsupported order status.");
+        }
+        Order order = getOrder(id);
+        order.setStatus(normalized);
+        return orderRepository.save(order);
     }
 }

@@ -16,7 +16,8 @@ public class Order {
     private Long id;
     private Long userId;
     private Double totalPrice;
-    private String status; // PENDING, COMPLETED, CANCELLED
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
     private String paymentStatus;
 
     @Transient
