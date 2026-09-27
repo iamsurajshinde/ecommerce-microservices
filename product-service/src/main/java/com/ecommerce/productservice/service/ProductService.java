@@ -84,4 +84,11 @@ public class ProductService {
             throw new IllegalArgumentException("Product name, non-negative price, and stock are required.");
         }
     }
+
+    public void delete(Long id) {
+        if (!productRepository.existsById(id)) {
+            throw new IllegalArgumentException("Product not found.");
+        }
+        productRepository.deleteById(id);
+    }
 }

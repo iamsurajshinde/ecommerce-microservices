@@ -33,4 +33,25 @@ public class CategoryController {
     public Category createCategory(@RequestBody Category category) {
         return categoryRepository.save(category);
     }
+
+    @PutMapping("/{id}")
+    public Category updateCategory(@PathVariable Long id, @RequestBody Category changes) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Category not found."));
+        if (changes.getName() == null || changes.getName().isBlank()) {
+            throw new IllegalArgumentException("Category name is required.");
+        }
+        category.setName(changes.getName().trim());
+        category.setDescription(changes.getDescription());
+        return categoryRepository.save(category);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+        if (!categoryRepository.existsById(id)) {
+            throw new IllegalArgumentException("Category not found.");
+        }
+        categoryRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
 }
