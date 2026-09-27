@@ -1,8 +1,8 @@
 package com.ecommerce.userservice.config;
 
 import com.ecommerce.userservice.model.User;
-import com.ecommerce.userservice.repository.UserRepository;
 import com.ecommerce.userservice.service.JwtService;
+import com.ecommerce.userservice.service.UserService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,16 +16,17 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserService userService) {
         this.jwtService = jwtService;
-        this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     @Override
@@ -46,9 +47,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                userRepository.findByEmailIgnoreCase(email)
-                        .filter(user -> jwtService.isValid(token, user))
-                        .ifPresent(user -> authenticate(user));
+                User user = userService.getUserByEmail(userService.normalizeEmail(email));
+                if (user != null && jwtService.isValid(token, user)) {
+                    authenticate(user);
+                }
             }
         }
 
@@ -56,7 +58,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void authenticate(User user) {
-        String role = user.getRole() == null ? "USER" : user.getRole();
+        String role = user.getRole() == null || user.getRole().isBlank()
+                ? "USER"
+                : user.getRole().trim().toUpperCase(Locale.ROOT);
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         user.getEmail(),

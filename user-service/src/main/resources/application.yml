@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: user-service
+  cache:
+    type: caffeine
   datasource:
     url: jdbc:postgresql://localhost:5432/user_db
     username: postgres
@@ -44,3 +46,7 @@ eureka:
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
   expiration: 86400000
+
+logging:
+  level:
+    com.ecommerce.userservice.service.UserService: DEBUG

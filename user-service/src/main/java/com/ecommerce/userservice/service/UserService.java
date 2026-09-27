@@ -6,7 +6,13 @@ import com.ecommerce.userservice.dto.UpdateRoleRequest;
 import com.ecommerce.userservice.model.User;
 import com.ecommerce.userservice.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -14,16 +20,22 @@ import java.util.regex.Pattern;
 @Service
 public class UserService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$",
             Pattern.CASE_INSENSITIVE);
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final CacheManager cacheManager;
 
-    public UserService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
+    public UserService(
+            UserRepository userRepository,
+            BCryptPasswordEncoder passwordEncoder,
+            CacheManager cacheManager) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.cacheManager = cacheManager;
     }
 
     public User saveUser(User user) {
@@ -52,8 +64,10 @@ public class UserService {
             throw new InvalidCredentialsException();
         }
 
-        User user = userRepository.findByEmailIgnoreCase(normalizeEmail(email))
-                .orElseThrow(InvalidCredentialsException::new);
+        User user = getUserByEmail(email);
+        if (user == null) {
+            throw new InvalidCredentialsException();
+        }
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new InvalidCredentialsException();
@@ -62,13 +76,29 @@ public class UserService {
         return user;
     }
 
-    public User getUserById(Long id) {
-        return userRepository.findById(id).orElse(null);
+    @Cacheable(
+            cacheNames = "usersByEmail",
+            key = "#email",
+            unless = "#result == null")
+    public User getUserByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return null;
+        }
+        return userRepository.findByEmailIgnoreCase(normalizeEmail(email)).orElse(null);
     }
 
+    @Cacheable(
+            cacheNames = "usersById",
+            key = "#id")
+    public User getUserById(Long id) {
+        log.debug("User cache miss for id={}; loading user from database", id);
+        return userRepository.findById(id).orElseThrow(()->new IllegalArgumentException("User not found."));
+    }
+
+    @CacheEvict(cacheNames = "usersById", key = "#id")
     public User updateProfile(Long id, UpdateProfileRequest request) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        User user = this.getUserById(id);
+        String previousEmail = user.getEmail();
 
         if (request == null) {
             throw new IllegalArgumentException("Profile update request is required.");
@@ -97,7 +127,10 @@ public class UserService {
             user.setPassword(passwordEncoder.encode(request.password()));
         }
 
-        return userRepository.save(user);
+        User updatedUser = userRepository.save(user);
+        evictEmailCache(previousEmail);
+        evictEmailCache(updatedUser.getEmail());
+        return updatedUser;
     }
 
     private void validateEmail(String email) {
@@ -109,10 +142,11 @@ public class UserService {
         }
     }
 
-    private String normalizeEmail(String email) {
+    public String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
+    @CacheEvict(cacheNames = "usersById", key = "#id")
     public User updateRole(Long id, UpdateRoleRequest request) {
         if (request == null || request.role() == null || request.role().isBlank()) {
             throw new IllegalArgumentException("Role is required.");
@@ -121,9 +155,20 @@ public class UserService {
         if (!role.equals("USER") && !role.equals("ADMIN")) {
             throw new IllegalArgumentException("Role must be USER or ADMIN.");
         }
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        User user = this.getUserById(id);
         user.setRole(role);
-        return userRepository.save(user);
+        User updatedUser = userRepository.save(user);
+        evictEmailCache(updatedUser.getEmail());
+        return updatedUser;
+    }
+
+    private void evictEmailCache(String email) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        Cache cache = cacheManager.getCache("usersByEmail");
+        if (cache != null) {
+            cache.evict(normalizeEmail(email));
+        }
     }
 }

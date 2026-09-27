@@ -3,6 +3,8 @@ package com.ecommerce.userservice.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ecommerce.userservice.exception.ApiError;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -82,6 +84,7 @@ public class SecurityConfig {
             String path,
             String message) throws java.io.IOException {
         response.setStatus(status);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(response.getOutputStream(), new ApiError(
                 Instant.now(),
@@ -89,6 +92,7 @@ public class SecurityConfig {
                 status == HttpServletResponse.SC_FORBIDDEN ? "Forbidden" : "Unauthorized",
                 message,
                 path));
+        response.getOutputStream().flush();
     }
 
     @Bean
