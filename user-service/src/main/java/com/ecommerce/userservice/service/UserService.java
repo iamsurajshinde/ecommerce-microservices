@@ -8,8 +8,15 @@ import com.ecommerce.userservice.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
+import java.util.regex.Pattern;
+
 @Service
 public class UserService {
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$",
+            Pattern.CASE_INSENSITIVE);
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -20,12 +27,24 @@ public class UserService {
     }
 
     public User saveUser(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User details are required.");
+        }
+        validateEmail(user.getEmail());
+        String normalizedEmail = normalizeEmail(user.getEmail());
+        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
+            throw new IllegalStateException("Email is already in use.");
+        }
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new IllegalArgumentException("Password must not be blank.");
+        }
+        user.setEmail(normalizedEmail);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
 
     public boolean existsByEmail(String email) {
-        return userRepository.existsByEmail(email);
+        return email != null && userRepository.existsByEmailIgnoreCase(normalizeEmail(email));
     }
 
     public User authenticate(String email, String password) {
@@ -33,7 +52,7 @@ public class UserService {
             throw new InvalidCredentialsException();
         }
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(normalizeEmail(email))
                 .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
@@ -57,14 +76,14 @@ public class UserService {
         if (request.name() != null && request.name().isBlank()) {
             throw new IllegalArgumentException("Name must not be blank.");
         }
-        if (request.email() != null && request.email().isBlank()) {
-            throw new IllegalArgumentException("Email must not be blank.");
+        if (request.email() != null) {
+            validateEmail(request.email());
         }
         if (request.password() != null && request.password().isBlank()) {
             throw new IllegalArgumentException("Password must not be blank.");
         }
-        if (request.email() != null && !request.email().equalsIgnoreCase(user.getEmail())
-                && userRepository.existsByEmail(request.email())) {
+        if (request.email() != null && !normalizeEmail(request.email()).equalsIgnoreCase(user.getEmail())
+                && userRepository.existsByEmailIgnoreCase(normalizeEmail(request.email()))) {
             throw new IllegalStateException("Email is already in use.");
         }
 
@@ -72,13 +91,26 @@ public class UserService {
             user.setName(request.name().trim());
         }
         if (request.email() != null) {
-            user.setEmail(request.email().trim());
+            user.setEmail(normalizeEmail(request.email()));
         }
         if (request.password() != null) {
             user.setPassword(passwordEncoder.encode(request.password()));
         }
 
         return userRepository.save(user);
+    }
+
+    private void validateEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email must not be blank.");
+        }
+        if (!EMAIL_PATTERN.matcher(email.trim()).matches()) {
+            throw new IllegalArgumentException("Email must be a valid email address.");
+        }
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     public User updateRole(Long id, UpdateRoleRequest request) {

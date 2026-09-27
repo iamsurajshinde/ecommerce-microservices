@@ -11,7 +11,9 @@ import com.ecommerce.userservice.service.UserService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,9 +26,6 @@ public class UserController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user) {
-        if (userService.existsByEmail(user.getEmail())) {
-            throw new IllegalStateException("Email is already in use.");
-        }
         User savedUser = userService.saveUser(user);
         return ResponseEntity.ok(toUserResponse(savedUser));
     }
@@ -63,7 +62,8 @@ public class UserController {
         if (currentUser == null
                 || authentication == null
                 || !currentUser.getEmail().equalsIgnoreCase(authentication.getName())) {
-            return ResponseEntity.status(403).build();
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You can update only your own profile.");
         }
 
         return ResponseEntity.ok(toUserResponse(userService.updateProfile(id, request)));
