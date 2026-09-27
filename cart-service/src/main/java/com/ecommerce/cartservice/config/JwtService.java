@@ -26,14 +26,14 @@ public class JwtService {
         } catch (JwtException | IllegalArgumentException exception) {
             return false;
         }
+    }
 
-        public Optional<String> extractSubject(String token) {
-            try {
-                return Optional.ofNullable(Jwts.parser().verifyWith(signingKey).build()
-                        .parseSignedClaims(token).getPayload().getSubject());
-            } catch (JwtException | IllegalArgumentException exception) {
-                return Optional.empty();
-            }
+    public Optional<String> extractSubject(String token) {
+        try {
+            return Optional.ofNullable(Jwts.parser().verifyWith(signingKey).build()
+                    .parseSignedClaims(token).getPayload().getSubject());
+        } catch (JwtException | IllegalArgumentException exception) {
+            return Optional.empty();
         }
     }
 }
