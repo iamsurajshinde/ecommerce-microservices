@@ -3,12 +3,14 @@ package com.ecommerce.userservice.controller;
 import com.ecommerce.userservice.dto.LoginRequest;
 import com.ecommerce.userservice.dto.LoginResponse;
 import com.ecommerce.userservice.dto.UserResponse;
+import com.ecommerce.userservice.dto.UpdateProfileRequest;
 import com.ecommerce.userservice.model.User;
 import com.ecommerce.userservice.service.JwtService;
 import com.ecommerce.userservice.service.UserService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -48,6 +50,22 @@ public class UserController {
         return user == null
                 ? ResponseEntity.notFound().build()
                 : ResponseEntity.ok(toUserResponse(user));
+    }
+
+    @PutMapping("/{id}/profile")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<UserResponse> updateProfile(
+            @PathVariable Long id,
+            @RequestBody UpdateProfileRequest request,
+            Authentication authentication) {
+        User currentUser = userService.getUserById(id);
+        if (currentUser == null
+                || authentication == null
+                || !currentUser.getEmail().equalsIgnoreCase(authentication.getName())) {
+            return ResponseEntity.status(403).build();
+        }
+
+        return ResponseEntity.ok(toUserResponse(userService.updateProfile(id, request)));
     }
 
     private UserResponse toUserResponse(User user) {
