@@ -3,6 +3,7 @@ package com.ecommerce.userservice.service;
 import com.ecommerce.userservice.exception.InvalidCredentialsException;
 import com.ecommerce.userservice.dto.UpdateProfileRequest;
 import com.ecommerce.userservice.dto.UpdateRoleRequest;
+import com.ecommerce.userservice.event.EventPublisher;
 import com.ecommerce.userservice.model.User;
 import com.ecommerce.userservice.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -14,7 +15,10 @@ import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -28,14 +32,17 @@ public class UserService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final CacheManager cacheManager;
+    private final EventPublisher eventPublisher;
 
     public UserService(
             UserRepository userRepository,
             BCryptPasswordEncoder passwordEncoder,
-            CacheManager cacheManager) {
+            CacheManager cacheManager,
+            EventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.cacheManager = cacheManager;
+        this.eventPublisher = eventPublisher;
     }
 
     public User saveUser(User user) {
@@ -52,7 +59,18 @@ public class UserService {
         }
         user.setEmail(normalizedEmail);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        publishUserRegistered(savedUser);
+        return savedUser;
+    }
+
+    private void publishUserRegistered(User user) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("eventId", "user-registered-" + user.getId() + "-" + UUID.randomUUID());
+        payload.put("userId", user.getId());
+        payload.put("email", user.getEmail());
+        payload.put("name", user.getName());
+        eventPublisher.publish(EventPublisher.RK_USER_REGISTERED, payload);
     }
 
     public boolean existsByEmail(String email) {

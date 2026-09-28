@@ -1,5 +1,6 @@
 package com.ecommerce.paymentservice.service;
 
+import com.ecommerce.paymentservice.event.EventPublisher;
 import com.ecommerce.paymentservice.exception.PaymentNotFoundException;
 import com.ecommerce.paymentservice.model.Payment;
 import com.ecommerce.paymentservice.repository.PaymentRepository;
@@ -7,7 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -20,6 +23,7 @@ public class PaymentService {
             Set.of("CREDIT_CARD", "DEBIT_CARD", "UPI", "NET_BANKING", "WALLET");
 
     private final PaymentRepository paymentRepository;
+    private final EventPublisher eventPublisher;
 
     public Payment process(Payment payment) {
         if (payment.getOrderId() == null) {
@@ -49,7 +53,21 @@ public class PaymentService {
         payment.setStatus("SUCCESS");
         payment.setTransactionId("MOCK-" + UUID.randomUUID());
         payment.setCreatedAt(Instant.now());
-        return paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
+        publishPaymentSucceeded(savedPayment);
+        return savedPayment;
+    }
+
+    private void publishPaymentSucceeded(Payment payment) {
+        // The Payment entity owns orderId/amount/transactionId but not the user's contact
+        // details, so this event carries payment facts only. The user-facing receipt is
+        // delivered via the order-service order.confirmed event, which has the email.
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("eventId", "payment-succeeded-" + payment.getOrderId());
+        payload.put("orderId", payment.getOrderId());
+        payload.put("amount", payment.getAmount());
+        payload.put("transactionId", payment.getTransactionId());
+        eventPublisher.publish(EventPublisher.RK_PAYMENT_SUCCEEDED, payload);
     }
 
     public Optional<Payment> findByOrderId(Long orderId) {

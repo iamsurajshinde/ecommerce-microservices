@@ -6,6 +6,8 @@ import com.ecommerce.orderservice.client.PaymentClient;
 import com.ecommerce.orderservice.client.PaymentDTO;
 import com.ecommerce.orderservice.client.PaymentRequest;
 import com.ecommerce.orderservice.client.UserClient;
+import com.ecommerce.orderservice.client.UserDTO;
+import com.ecommerce.orderservice.event.EventPublisher;
 import com.ecommerce.orderservice.model.Order;
 import com.ecommerce.orderservice.model.OrderItem;
 import com.ecommerce.orderservice.model.OrderStatus;
@@ -15,8 +17,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,9 +30,11 @@ public class OrderService {
     private final ProductClient productClient;
     private final UserClient userClient;
     private final PaymentClient paymentClient;
+    private final EventPublisher eventPublisher;
 
     public Order placeOrder(Order order) {
-        if (order.getUserId() == null || userClient.getUserById(order.getUserId()) == null) {
+        UserDTO user = order.getUserId() == null ? null : userClient.getUserById(order.getUserId());
+        if (user == null) {
             throw new IllegalArgumentException("User not found.");
         }
         if (order.getItems() == null || order.getItems().isEmpty()) {
@@ -80,13 +86,37 @@ public class OrderService {
             RuntimeException compensationFailure = restoreReservedStock(reservedItems);
             savedOrder.setPaymentStatus("FAILED");
             savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
-            orderRepository.save(savedOrder);
+            Order failedOrder = orderRepository.save(savedOrder);
+            publishPaymentFailed(failedOrder, user, exception.getMessage());
             if (compensationFailure != null) {
                 exception.addSuppressed(compensationFailure);
             }
             throw new IllegalStateException("Payment processing failed.", exception);
         }
-        return orderRepository.save(savedOrder);
+        Order confirmedOrder = orderRepository.save(savedOrder);
+        publishOrderConfirmed(confirmedOrder, user);
+        return confirmedOrder;
+    }
+
+    private void publishOrderConfirmed(Order order, UserDTO user) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("eventId", "order-confirmed-" + order.getId());
+        payload.put("orderId", order.getId());
+        payload.put("userId", order.getUserId());
+        payload.put("email", user == null ? null : user.email());
+        payload.put("totalPrice", order.getTotalPrice());
+        eventPublisher.publish(EventPublisher.RK_ORDER_CONFIRMED, payload);
+    }
+
+    private void publishPaymentFailed(Order order, UserDTO user, String reason) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("eventId", "payment-failed-" + order.getId());
+        payload.put("orderId", order.getId());
+        payload.put("userId", order.getUserId());
+        payload.put("email", user == null ? null : user.email());
+        payload.put("amount", order.getTotalPrice());
+        payload.put("reason", reason == null ? "Payment processing failed." : reason);
+        eventPublisher.publish(EventPublisher.RK_PAYMENT_FAILED, payload);
     }
 
     private RuntimeException restoreReservedStock(List<OrderItem> reservedItems) {
@@ -127,11 +157,26 @@ public class OrderService {
             productClient.restoreStock(item.getProductId(), item.getQuantity());
         }
         order.setStatus(OrderStatus.CANCELLED);
+        boolean refundIssued = false;
         if ("SUCCESS".equals(order.getPaymentStatus())) {
             paymentClient.refundPayment(order.getId());
             order.setPaymentStatus("REFUNDED");
+            refundIssued = true;
         }
-        return orderRepository.save(order);
+        Order cancelledOrder = orderRepository.save(order);
+        publishOrderCancelled(cancelledOrder, refundIssued);
+        return cancelledOrder;
+    }
+
+    private void publishOrderCancelled(Order order, boolean refundIssued) {
+        UserDTO user = order.getUserId() == null ? null : userClient.getUserById(order.getUserId());
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("eventId", "order-cancelled-" + order.getId());
+        payload.put("orderId", order.getId());
+        payload.put("userId", order.getUserId());
+        payload.put("email", user == null ? null : user.email());
+        payload.put("refundIssued", refundIssued);
+        eventPublisher.publish(EventPublisher.RK_ORDER_CANCELLED, payload);
     }
 
     public Order updateStatus(Long id, String status) {

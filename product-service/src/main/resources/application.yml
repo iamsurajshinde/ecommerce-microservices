@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: product-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
   datasource:
     url: jdbc:postgresql://localhost:5432/product_db
     username: postgres
@@ -32,6 +37,9 @@ jwt:
 
 internal:
   service-token: ecommerce-internal-service-token
+
+product:
+  low-stock-threshold: 5
 
 management:
   endpoints:

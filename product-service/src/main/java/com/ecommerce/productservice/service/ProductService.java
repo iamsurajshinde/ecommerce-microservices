@@ -1,12 +1,16 @@
 package com.ecommerce.productservice.service;
 
+import com.ecommerce.productservice.event.EventPublisher;
 import com.ecommerce.productservice.model.Product;
 import com.ecommerce.productservice.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -14,6 +18,10 @@ import java.util.Optional;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final EventPublisher eventPublisher;
+
+    @Value("${product.low-stock-threshold:5}")
+    private int lowStockThreshold;
 
     public List<Product> findProducts(String keyword, String category) {
         if (keyword != null && !keyword.isBlank()) {
@@ -61,7 +69,23 @@ public class ProductService {
             throw new IllegalStateException("Insufficient stock for product: " + product.getName());
         }
         product.setStockQuantity(product.getStockQuantity() - quantity);
-        return productRepository.save(product);
+        Product savedProduct = productRepository.save(product);
+        publishLowStockIfNeeded(savedProduct);
+        return savedProduct;
+    }
+
+    private void publishLowStockIfNeeded(Product product) {
+        Integer remaining = product.getStockQuantity();
+        if (remaining == null || remaining > lowStockThreshold) {
+            return;
+        }
+        Map<String, Object> payload = new HashMap<>();
+        // Include remaining stock in the id so each threshold crossing is a distinct event.
+        payload.put("eventId", "low-stock-" + product.getId() + "-" + remaining);
+        payload.put("productId", product.getId());
+        payload.put("productName", product.getName());
+        payload.put("remainingStock", remaining);
+        eventPublisher.publish(EventPublisher.RK_LOW_STOCK, payload);
     }
 
     @Transactional
