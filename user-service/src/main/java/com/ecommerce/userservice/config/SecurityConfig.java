@@ -95,8 +95,4 @@ public class SecurityConfig {
         response.getOutputStream().flush();
     }
 
-    @Bean
-    BCryptPasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 }
