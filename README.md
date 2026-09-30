@@ -1,6 +1,6 @@
 # E-Commerce Java 17 Microservices Project
 
-This project contains a fully modular, enterprise-grade e-commerce microservices architecture implemented with **Java 17**, **Spring Boot 3.x**, **Spring Cloud**, **Spring Security (JWT)**, **PostgreSQL**, and **OpenFeign**.
+This project contains a modular e-commerce microservices architecture implemented with **Java 17**, **Spring Boot 3.x**, **Spring Cloud**, **Spring Security (JWT)**, **PostgreSQL**, **RabbitMQ**, and **OpenFeign**.
 
 ## Architecture & Services
 1. **discovery-server** (Port 8761): Eureka Service Discovery.
@@ -10,6 +10,11 @@ This project contains a fully modular, enterprise-grade e-commerce microservices
 5. **cart-service** (Port 8083): User carts with optimistic locking for concurrent updates.
 6. **order-service** (Port 8084): Order creation, product validation, and payment orchestration.
 7. **payment-service** (Port 8085): Secure mock payment processing.
+8. **notification-service** (Port 8086): Event-driven customer and operational notifications.
+
+Each service owns its database schema. RabbitMQ carries business events such as
+registration, order confirmation, payment outcomes, cancellations, and low-stock alerts
+to the Notification Service asynchronously.
 
 ## Authentication
 
@@ -38,9 +43,20 @@ http://localhost:8080/swagger-ui.html
 ```
 
 Use the API selector in the UI to switch between User, Product, Cart, Order,
-and Payment APIs. Their OpenAPI documents are proxied through the gateway at
+Payment, and Notification APIs. Their OpenAPI documents are proxied through the gateway at
 `/v3/api-docs/{service-name}`.
+
+## Deployment
+
+The platform can be run with Docker Compose, including the services, PostgreSQL
+databases, and RabbitMQ.
 
 ## Sprint Roadmap Covered
 - **Sprint 1:** Infrastructure Setup (Discovery Server & API Gateway)
 - **Sprint 2:** User Management Module (Spring Security, JWT, BCrypt)
+- **Sprint 3:** Product Catalog and Inventory Management
+- **Sprint 4:** Shopping Cart with Optimistic Locking
+- **Sprint 5:** Order Management with Saga Compensation
+- **Sprint 6:** Mock Payment Processing and Refunds
+- **Sprint 7:** Event-Driven Notifications with RabbitMQ
+- **Sprint 8:** Unified Swagger Documentation and Docker Compose Deployment

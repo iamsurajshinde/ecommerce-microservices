@@ -19,6 +19,18 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   user-db:
     image: postgres:16
     container_name: user-db
@@ -47,11 +59,14 @@ services:
         condition: service_started
       user-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://user-db:5432/user_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - RABBITMQ_HOST=rabbitmq
 
   product-db:
     image: postgres:16
@@ -81,11 +96,14 @@ services:
         condition: service_started
       product-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://product-db:5432/product_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - RABBITMQ_HOST=rabbitmq
 
   cart-db:
     image: postgres:16
@@ -149,11 +167,14 @@ services:
         condition: service_started
       order-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://order-db:5432/order_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - RABBITMQ_HOST=rabbitmq
 
   payment-service:
     build: ./payment-service
@@ -166,11 +187,14 @@ services:
         condition: service_started
       payment-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
       - SPRING_DATASOURCE_URL=jdbc:postgresql://payment-db:5432/payment_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
+      - RABBITMQ_HOST=rabbitmq
 
   payment-db:
     image: postgres:16
@@ -189,9 +213,48 @@ services:
       timeout: 5s
       retries: 10
 
+  notification-db:
+    image: postgres:16
+    container_name: notification-db
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  notification-service:
+    build: ./notification-service
+    image: ecommerce/notification-service:latest
+    container_name: notification-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      discovery-server:
+        condition: service_started
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://notification-db:5432/notification_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+
 volumes:
   user-db-data:
   product-db-data:
   cart-db-data:
   order-db-data:
   payment-db-data:
+  notification-db-data:

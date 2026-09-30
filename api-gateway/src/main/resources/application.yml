@@ -50,6 +50,12 @@ spring:
             - Path=/v3/api-docs/payment-service
           filters:
             - RewritePath=/v3/api-docs/payment-service, /v3/api-docs
+        - id: notification-service-openapi
+          uri: lb://notification-service
+          predicates:
+            - Path=/v3/api-docs/notification-service
+          filters:
+            - RewritePath=/v3/api-docs/notification-service, /v3/api-docs
         - id: user-service-route
           uri: lb://user-service
           predicates:
@@ -74,6 +80,10 @@ spring:
           uri: lb://payment-service
           predicates:
             - Path=/api/payments/**
+        - id: notification-service-route
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
 
 springdoc:
   swagger-ui:
@@ -90,6 +100,8 @@ springdoc:
         url: /v3/api-docs/order-service
       - name: Payment Service
         url: /v3/api-docs/payment-service
+      - name: Notification Service
+        url: /v3/api-docs/notification-service
     urls-primary-name: User Service
 
 eureka:
