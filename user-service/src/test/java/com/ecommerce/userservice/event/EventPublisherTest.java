@@ -74,7 +74,7 @@ class EventPublisherTest {
         Message processed = captor.getValue().postProcessMessage(message);
 
         MessageProperties props = processed.getMessageProperties();
-        assertThat(props.getHeader("__TypeId__")).isEqualTo(EventPublisher.RK_USER_REGISTERED);
+        assertThat(props.getHeader("__TypeId__").toString()).isEqualTo(EventPublisher.RK_USER_REGISTERED);
         assertThat(props.getContentType()).isEqualTo(MessageProperties.CONTENT_TYPE_JSON);
     }
 
