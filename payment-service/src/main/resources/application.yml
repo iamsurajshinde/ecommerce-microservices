@@ -35,6 +35,19 @@ jwt:
 internal:
   service-token: ecommerce-internal-service-token
 
+payment:
+  # Active payment gateway. "mock" is the default and works out of the box.
+  # Unknown/unconfigured values fall back to "mock" at runtime.
+  gateway: mock
+
+stripe:
+  secret:
+    key: ${STRIPE_SECRET_KEY:DUMMY_KEY}
+  webhook:
+    secret: ${STRIPE_WEBHOOK_SECRET:DUMMY_WEBHOOK_SECRET}
+  currency: ${STRIPE_CURRENCY:usd}
+  success-url: ${STRIPE_SUCCESS_URL:https://example.com/checkout/success}
+
 management:
   endpoints:
     web:

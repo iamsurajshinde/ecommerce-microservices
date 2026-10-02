@@ -1,5 +1,7 @@
 package com.ecommerce.paymentservice.controller;
 
+import com.ecommerce.paymentservice.dto.CheckoutRequest;
+import com.ecommerce.paymentservice.dto.CheckoutResponse;
 import com.ecommerce.paymentservice.model.Payment;
 import com.ecommerce.paymentservice.service.PaymentService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,6 +25,11 @@ public class PaymentController {
     @PostMapping("/process")
     public ResponseEntity<Payment> processPayment(@RequestBody Payment payment) {
         return ResponseEntity.ok(paymentService.process(payment));
+    }
+
+    @PostMapping("/checkout")
+    public ResponseEntity<CheckoutResponse> checkout(@RequestBody CheckoutRequest request) {
+        return ResponseEntity.ok(paymentService.initiateCheckout(request));
     }
 
     @GetMapping("/order/{orderId}")

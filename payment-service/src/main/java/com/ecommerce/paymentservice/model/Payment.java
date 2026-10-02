@@ -22,4 +22,5 @@ public class Payment {
     private String transactionId;
     private String failureReason;
     private Instant createdAt;
+    private String paymentLinkUrl;
 }

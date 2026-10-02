@@ -25,6 +25,7 @@ public class EventPublisher {
 
     public static final String EVENTS_EXCHANGE = "ecommerce.events";
     public static final String RK_PAYMENT_SUCCEEDED = "payment.succeeded";
+    public static final String RK_PAYMENT_FAILED = "payment.failed";
 
     private static final Logger log = LoggerFactory.getLogger(EventPublisher.class);
 
