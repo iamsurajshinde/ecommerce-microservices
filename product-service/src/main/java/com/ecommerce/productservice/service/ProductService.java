@@ -5,6 +5,8 @@ import com.ecommerce.productservice.model.Product;
 import com.ecommerce.productservice.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,18 +25,18 @@ public class ProductService {
     @Value("${product.low-stock-threshold:5}")
     private int lowStockThreshold;
 
-    public List<Product> findProducts(String keyword, String category) {
+    public Page<Product> findProducts(String keyword, String category, Pageable pageable) {
         if (keyword != null && !keyword.isBlank()) {
-            return productRepository.findByNameContainingIgnoreCase(keyword);
+            return productRepository.findByNameContainingIgnoreCase(keyword, pageable);
         }
         if (category != null && !category.isBlank()) {
-            return productRepository.findByCategory_NameIgnoreCase(category);
+            return productRepository.findByCategory_NameIgnoreCase(category, pageable);
         }
-        return productRepository.findAll();
+        return productRepository.findAll(pageable);
     }
 
-    public List<Product> findByCategoryId(Long categoryId) {
-        return productRepository.findByCategory_Id(categoryId);
+    public Page<Product> findByCategoryId(Long categoryId, Pageable pageable) {
+        return productRepository.findByCategory_Id(categoryId, pageable);
     }
 
     public Optional<Product> findById(Long id) {

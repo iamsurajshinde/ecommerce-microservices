@@ -6,6 +6,8 @@ import com.ecommerce.orderservice.client.UserClient;
 import com.ecommerce.orderservice.client.UserDTO;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
@@ -29,10 +31,11 @@ public class OrderController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Order>> getOrderHistory(@PathVariable Long userId,
-                                                       Authentication authentication) {
+    public ResponseEntity<Page<Order>> getOrderHistory(@PathVariable Long userId,
+                                                       Authentication authentication,
+                                                       Pageable pageable) {
         verifyOwner(userId, authentication);
-        List<Order> orders = orderService.getOrdersByUser(userId);
+        Page<Order> orders = orderService.getOrdersByUser(userId, pageable);
         return ResponseEntity.ok(orders);
     }
 

@@ -7,6 +7,8 @@ import com.ecommerce.notificationservice.model.NotificationPreference;
 import com.ecommerce.notificationservice.repository.NotificationRepository;
 import com.ecommerce.notificationservice.service.PreferenceService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,10 +30,9 @@ public class NotificationController {
     }
 
     @GetMapping("/user/{userId}")
-    public List<NotificationResponse> getUserNotifications(@PathVariable Long userId) {
-        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .map(NotificationResponse::from)
-                .toList();
+    public Page<NotificationResponse> getUserNotifications(@PathVariable Long userId, Pageable pageable) {
+        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(NotificationResponse::from);
     }
 
     @GetMapping("/preferences/{userId}")

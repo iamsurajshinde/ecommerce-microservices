@@ -4,6 +4,8 @@ import com.ecommerce.productservice.model.Product;
 import com.ecommerce.productservice.service.ProductService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -24,14 +26,15 @@ public class ProductController {
     private String internalServiceToken;
 
     @GetMapping
-    public List<Product> getAllProducts(@RequestParam(required = false) String keyword,
-                                        @RequestParam(required = false) String category) {
-        return productService.findProducts(keyword, category);
+    public Page<Product> getAllProducts(@RequestParam(required = false) String keyword,
+                                        @RequestParam(required = false) String category,
+                                        Pageable pageable) {
+        return productService.findProducts(keyword, category, pageable);
     }
 
     @GetMapping("/category/{categoryId}")
-    public List<Product> getProductsByCategory(@PathVariable Long categoryId) {
-        return productService.findByCategoryId(categoryId);
+    public Page<Product> getProductsByCategory(@PathVariable Long categoryId, Pageable pageable) {
+        return productService.findByCategoryId(categoryId, pageable);
     }
 
     @GetMapping("/{id}")
