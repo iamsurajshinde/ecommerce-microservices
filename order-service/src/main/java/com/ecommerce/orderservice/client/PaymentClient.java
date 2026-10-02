@@ -12,6 +12,9 @@ public interface PaymentClient {
     @PostMapping("/api/payments/process")
     PaymentDTO processPayment(@RequestBody PaymentRequest request);
 
+    @PostMapping("/api/payments/checkout")
+    CheckoutResponse checkout(@RequestBody CheckoutRequest request);
+
     @PostMapping("/api/payments/order/{orderId}/refund")
     PaymentDTO refundPayment(@PathVariable("orderId") Long orderId);
 }

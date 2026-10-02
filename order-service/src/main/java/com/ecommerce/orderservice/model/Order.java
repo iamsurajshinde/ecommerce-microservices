@@ -20,6 +20,8 @@ public class Order {
     private OrderStatus status;
     private String paymentStatus;
 
+    private String paymentLinkUrl;
+
     @Transient
     private String paymentMethod;
 

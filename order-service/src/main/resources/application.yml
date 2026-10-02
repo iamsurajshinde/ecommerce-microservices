@@ -40,6 +40,10 @@ jwt:
 internal:
   service-token: ecommerce-internal-service-token
 
+order:
+  payment:
+    async: ${ORDER_PAYMENT_ASYNC:false}
+
 management:
   endpoints:
     web:

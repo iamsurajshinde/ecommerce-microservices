@@ -1,5 +1,7 @@
 package com.ecommerce.orderservice.service;
 
+import com.ecommerce.orderservice.client.CheckoutRequest;
+import com.ecommerce.orderservice.client.CheckoutResponse;
 import com.ecommerce.orderservice.client.ProductClient;
 import com.ecommerce.orderservice.client.ProductDTO;
 import com.ecommerce.orderservice.client.PaymentClient;
@@ -14,6 +16,7 @@ import com.ecommerce.orderservice.model.OrderStatus;
 import com.ecommerce.orderservice.repository.OrderRepository;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,9 @@ public class OrderService {
     private final UserClient userClient;
     private final PaymentClient paymentClient;
     private final EventPublisher eventPublisher;
+
+    @Value("${order.payment.async:false}")
+    private boolean async;
 
     public Order placeOrder(Order order) {
         UserDTO user = order.getUserId() == null ? null : userClient.getUserById(order.getUserId());
@@ -72,32 +78,107 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         List<OrderItem> reservedItems = new ArrayList<>();
 
-        try {
-            for (OrderItem item : savedOrder.getItems()) {
-                productClient.decreaseStock(item.getProductId(), item.getQuantity());
-                reservedItems.add(item);
+        if (!async) {
+            try {
+                for (OrderItem item : savedOrder.getItems()) {
+                    productClient.decreaseStock(item.getProductId(), item.getQuantity());
+                    reservedItems.add(item);
+                }
+                PaymentDTO payment = paymentClient.processPayment(new PaymentRequest(
+                        savedOrder.getId(), savedOrder.getTotalPrice(), savedOrder.getPaymentMethod()));
+                if (payment == null || !"SUCCESS".equals(payment.status())) {
+                    throw new IllegalStateException("Payment was not successful.");
+                }
+                savedOrder.setPaymentStatus("SUCCESS");
+                savedOrder.setStatus(OrderStatus.CONFIRMED);
+            } catch (FeignException | IllegalArgumentException | IllegalStateException exception) {
+                RuntimeException compensationFailure = restoreReservedStock(reservedItems);
+                savedOrder.setPaymentStatus("FAILED");
+                savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
+                Order failedOrder = orderRepository.save(savedOrder);
+                publishPaymentFailed(failedOrder, user, exception.getMessage());
+                if (compensationFailure != null) {
+                    exception.addSuppressed(compensationFailure);
+                }
+                throw new IllegalStateException("Payment processing failed.", exception);
             }
-            PaymentDTO payment = paymentClient.processPayment(new PaymentRequest(
-                    savedOrder.getId(), savedOrder.getTotalPrice(), savedOrder.getPaymentMethod()));
-            if (payment == null || !"SUCCESS".equals(payment.status())) {
-                throw new IllegalStateException("Payment was not successful.");
+            Order confirmedOrder = orderRepository.save(savedOrder);
+            publishOrderConfirmed(confirmedOrder, user);
+            return confirmedOrder;
+        } else {
+            try {
+                for (OrderItem item : savedOrder.getItems()) {
+                    productClient.decreaseStock(item.getProductId(), item.getQuantity());
+                    reservedItems.add(item);
+                }
+                CheckoutResponse resp = paymentClient.checkout(new CheckoutRequest(
+                        savedOrder.getId(), savedOrder.getTotalPrice(), savedOrder.getPaymentMethod(), null));
+                savedOrder.setPaymentLinkUrl(resp == null ? null : resp.paymentLinkUrl());
+                // Leave status=CREATED, paymentStatus="PENDING"; confirmation arrives via webhook event.
+                Order pendingOrder = orderRepository.save(savedOrder);
+                return pendingOrder;
+            } catch (FeignException exception) {
+                RuntimeException compensationFailure = restoreReservedStock(reservedItems);
+                savedOrder.setPaymentStatus("FAILED");
+                savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
+                Order failedOrder = orderRepository.save(savedOrder);
+                publishPaymentFailed(failedOrder, user, exception.getMessage());
+                if (compensationFailure != null) {
+                    exception.addSuppressed(compensationFailure);
+                }
+                throw new IllegalStateException("Payment checkout failed.", exception);
             }
-            savedOrder.setPaymentStatus("SUCCESS");
-            savedOrder.setStatus(OrderStatus.CONFIRMED);
-        } catch (FeignException | IllegalArgumentException | IllegalStateException exception) {
-            RuntimeException compensationFailure = restoreReservedStock(reservedItems);
-            savedOrder.setPaymentStatus("FAILED");
-            savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
-            Order failedOrder = orderRepository.save(savedOrder);
-            publishPaymentFailed(failedOrder, user, exception.getMessage());
-            if (compensationFailure != null) {
-                exception.addSuppressed(compensationFailure);
-            }
-            throw new IllegalStateException("Payment processing failed.", exception);
         }
-        Order confirmedOrder = orderRepository.save(savedOrder);
+    }
+
+    /**
+     * Idempotent async confirmation driven by a {@code payment.succeeded} event. Acts only
+     * when the order is still awaiting payment (CREATED/PENDING); repeat deliveries for an
+     * already-terminal order are a silent no-op so Stripe/broker retries never double-confirm.
+     * Runs OUTSIDE an HTTP request, so {@code userClient.getUserById} forwards only the
+     * internal service token and may return null; {@link #publishOrderConfirmed} null-guards it.
+     */
+    public void confirmFromPayment(Long orderId) {
+        if (orderId == null) {
+            return;
+        }
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return;
+        }
+        if (order.getStatus() != OrderStatus.CREATED || !"PENDING".equals(order.getPaymentStatus())) {
+            return;
+        }
+        order.setPaymentStatus("SUCCESS");
+        order.setStatus(OrderStatus.CONFIRMED);
+        Order confirmedOrder = orderRepository.save(order);
+        UserDTO user = confirmedOrder.getUserId() == null
+                ? null : userClient.getUserById(confirmedOrder.getUserId());
         publishOrderConfirmed(confirmedOrder, user);
-        return confirmedOrder;
+    }
+
+    /**
+     * Idempotent async failure driven by a {@code payment.failed} event. Acts only when the
+     * order is still awaiting payment (CREATED/PENDING): restores reserved stock, marks the
+     * order PAYMENT_FAILED, and publishes {@code order.cancelled} (refundIssued=false). Repeat
+     * deliveries for a terminal order are a silent no-op. Runs OUTSIDE an HTTP request.
+     */
+    public void failFromPayment(Long orderId, String reason) {
+        if (orderId == null) {
+            return;
+        }
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return;
+        }
+        if (order.getStatus() != OrderStatus.CREATED || !"PENDING".equals(order.getPaymentStatus())) {
+            return;
+        }
+        restoreReservedStock(order.getItems());
+        order.setPaymentStatus("FAILED");
+        order.setStatus(OrderStatus.PAYMENT_FAILED);
+        Order failedOrder = orderRepository.save(order);
+        publishOrderCancelled(failedOrder, false);
     }
 
     private void publishOrderConfirmed(Order order, UserDTO user) {
